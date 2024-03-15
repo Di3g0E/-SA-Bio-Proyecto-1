@@ -6,27 +6,39 @@ from sklearn.datasets import fetch_openml
 mnist = fetch_openml('mnist_784', version=1)
 x, y = mnist['data'], mnist['target']
 
-# Convertir las etiquetas a enteros
-y = y.astype(int)
+df_x = pd.DataFrame(x)
+df_y = pd.DataFrame(y)
+#print(df)
 
-# Crear DataFrame con los datos completos
-mnist_df = pd.DataFrame(data=x, columns=[f"Pixel_{i}" for i in range(x.shape[1])])
-mnist_df['Label'] = y  # Agregar columna de etiquetas
 
-# Seleccionar aleatoriamente 200 datos
-sample_df = mnist_df.sample(n=200, random_state=42)
+# Definir una función para convertir una fila en una lista de columnas
+def row_to_columns(row):
+    return [row[i:i+28] for i in range(0, len(row), 28)]
 
-# Seleccionar dos columnas para realizar el producto cartesiano
-selected_columns = ['Pixel_100', 'Pixel_200']
+# Aplicar la función a cada fila y crear una nueva columna con listas de columnas
+df_x_columns = df_x.apply(row_to_columns, axis=1)
 
-# Calcular el producto cartesiano entre las dos columnas seleccionadas
-cartesian_product = [(a, b, a*b) for a in sample_df[selected_columns[0]] for b in sample_df[selected_columns[1]]]
+# Obtener la mitad de las filas
+mitad_filas = len(df_x_columns) // 2
 
-# Crear un nuevo DataFrame con los resultados del producto cartesiano
-cartesian_df = pd.DataFrame(cartesian_product, columns=selected_columns + ['Product'])
+# Dividir el DataFrame a la mitad
+df_x_columns_1 = df_x_columns.iloc[:mitad_filas]
+df_x_columns_2 = df_x_columns.iloc[mitad_filas:]
 
-# Verificar si el producto está en alguna de las dos columnas originales y crear la columna 'Match'
-cartesian_df['Match'] = cartesian_df['Product'].isin(sample_df[selected_columns[0]]) | cartesian_df['Product'].isin(sample_df[selected_columns[1]])
+df_y_1 = df_y.iloc[:mitad_filas]
+df_y_2 = df_y.iloc[mitad_filas:]
 
-print("DataFrame con el producto cartesiano y la columna 'Match':")
-print(cartesian_df)
+df_y_1.columns = ['target_1']
+df_y_2.columns = ['target_2']
+
+# Junto los cuatro en un solo data frame
+merged_df = pd.concat([df_x_columns_1.reset_index(drop=True),
+                       df_x_columns_2.reset_index(drop=True),
+                       df_y_1.reset_index(drop=True),
+                       df_y_2.reset_index(drop=True)], axis=1)
+
+# Agregar una nueva columna con 1 si los valores son iguales, 0 si son distintos
+merged_df['igualdad'] = merged_df.apply(lambda row: 1 if row['target_1'] == row['target_2'] else 0, axis=1)
+
+# Mostrar el DataFrame con la nueva columna
+print(merged_df.head())
